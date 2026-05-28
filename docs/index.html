@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="BlockBatch: Multi-Scale Consensus Decoding for Efficient Diffusion Language Model Inference."
+    />
+    <title>BlockBatch</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav">
+        <a class="brand" href="#top">BlockBatch</a>
+        <div class="nav-links">
+          <a href="#abstract">Abstract</a>
+          <a href="#method">Method</a>
+          <a href="#results">Results</a>
+          <a href="#artifact">Artifact</a>
+          <a href="#citation">Citation</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero section-pad">
+        <div class="hero-copy">
+          <p class="eyebrow">Diffusion LLM Inference</p>
+          <h1>BlockBatch</h1>
+          <p class="subtitle">
+            Multi-Scale Consensus Decoding for Efficient Diffusion Language
+            Model Inference
+          </p>
+          <p class="authors">
+            Xiaoyou Wu, Cheng-Jhih Shih, Binfei Ji, Yong Liu, Yingyan (Celine) Lin
+          </p>
+          <p class="affiliation">Georgia Institute of Technology</p>
+
+          <div class="button-row" aria-label="Project links">
+            <a class="button primary" href="https://github.com/Laurence-Wu/BlockBatch">Code</a>
+            <a class="button" href="#abstract">Paper</a>
+            <a class="button" href="#citation">BibTeX</a>
+            <a class="button" href="assets/main-table.pdf">Main Table PDF</a>
+          </div>
+        </div>
+
+        <div class="metric-panel" aria-label="Headline metrics">
+          <div>
+            <strong>26.6%</strong>
+            <span>average denoising-NFE reduction over Fast-dLLM</span>
+          </div>
+          <div>
+            <strong>1.33x</strong>
+            <span>average end-to-end speedup over Fast-dLLM</span>
+          </div>
+          <div>
+            <strong>12/12</strong>
+            <span>model-task settings with lowest or tied-lowest NFE</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="teaser">
+        <figure>
+          <img src="assets/overview.png" alt="BlockBatch speedup overview on MBPP" />
+          <figcaption>
+            BlockBatch improves the accuracy-efficiency tradeoff against
+            Fast-dLLM and the vanilla diffusion baseline on MBPP.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section id="abstract" class="section-pad split-section">
+        <div>
+          <p class="eyebrow">Abstract</p>
+          <h2>Block size is a branching dimension.</h2>
+        </div>
+        <div class="prose">
+          <p>
+            Diffusion language models generate text by iteratively denoising
+            multiple token positions in parallel. In block-wise dLLM inference,
+            small blocks preserve local conditioning but require many denoising
+            steps, while large blocks expose more parallelism but can make
+            premature commitments and accumulate cache error.
+          </p>
+          <p>
+            BlockBatch treats block size itself as a useful branching dimension.
+            It executes multiple block-size branches for the same request inside
+            batched model forwards, then coordinates those branches with
+            confidence-gated token merging, leader-based synchronization, and
+            periodic full-sequence KV refresh.
+          </p>
+        </div>
+      </section>
+
+      <section class="section-pad" id="motivation">
+        <div class="section-heading">
+          <p class="eyebrow">Motivation</p>
+          <h2>No single block size wins everywhere.</h2>
+          <p>
+            Per-sample oracle results show that block sizes induce complementary
+            accuracy-NFE tradeoffs. BlockBatch turns this observation into an
+            online multi-branch decoding strategy.
+          </p>
+        </div>
+        <figure class="paper-figure">
+          <img
+            src="assets/optimal-blocksize-ablation.png"
+            alt="Per-sample block-size oracle versus fixed block-size decoding"
+          />
+          <figcaption>
+            Oracle block-size selection motivates block size as a per-sample
+            branching axis rather than a fixed hyperparameter.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section id="method" class="section-pad method-section">
+        <div class="section-heading">
+          <p class="eyebrow">Method</p>
+          <h2>Multi-scale consensus decoding.</h2>
+          <p>
+            Each branch owns its sequence row and KV-cache row. Large-block
+            branches advance aggressively, small-block branches provide
+            conservative alternatives, and consensus operations exchange only
+            compatible high-confidence information.
+          </p>
+        </div>
+
+        <div class="method-grid">
+          <article class="method-card">
+            <span>01</span>
+            <h3>Confidence-Gated Merge</h3>
+            <p>
+              Compatible branches transfer token proposals only when the
+              destination branch assigns sufficient probability to the proposed
+              token.
+            </p>
+          </article>
+          <article class="method-card">
+            <span>02</span>
+            <h3>Leader-Based Sync</h3>
+            <p>
+              Lagging branches copy the sequence state and KV row of a
+              sufficiently advanced branch, avoiding wasted computation in stale
+              regions.
+            </p>
+          </article>
+          <article class="method-card">
+            <span>03</span>
+            <h3>Full-Sequence Refresh</h3>
+            <p>
+              Periodic refreshes recompute branch KV states, re-anchoring local
+              block updates to a globally consistent state.
+            </p>
+          </article>
+        </div>
+
+        <figure class="paper-figure wide">
+          <img src="assets/blockbatch-algorithm.png" alt="BlockBatch algorithm overview" />
+          <figcaption>
+            BlockBatch alternates local block denoising with merge, sync, and
+            refresh operations inside one fused generation process.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section id="system" class="section-pad split-section">
+        <div>
+          <p class="eyebrow">System Optimization</p>
+          <h2>Batch branches without paying for independent requests.</h2>
+        </div>
+        <div class="prose">
+          <p>
+            At each denoising step, BlockBatch packs unmasked query positions
+            from all branches into one variable-length buffer. Attention and FFN
+            layers operate on this compact buffer while a unified KV cache
+            preserves per-branch attention semantics.
+          </p>
+          <p>
+            The total NFE is counted as
+            <span class="formula">NFE<sub>init</sub> + NFE<sub>block</sub> + NFE<sub>refresh</sub></span>,
+            with one batched model forward counted as one NFE.
+          </p>
+        </div>
+      </section>
+
+      <figure class="paper-figure system-figure">
+        <img src="assets/system-optimization.png" alt="BlockBatch system optimization" />
+        <figcaption>
+          BlockBatch packs active branch tokens into a compact denoise buffer,
+          keeping multi-branch denoising efficient on GPU.
+        </figcaption>
+      </figure>
+
+      <section id="results" class="section-pad results-section">
+        <div class="section-heading">
+          <p class="eyebrow">Results</p>
+          <h2>Lower NFEs across LLaDA and Dream.</h2>
+          <p>
+            BlockBatch is evaluated on LLaDA-1.5-8B, LLaDA-Instruct-8B, and
+            Dream-Base-7B across GSM8K, MATH, HumanEval, and MBPP.
+          </p>
+        </div>
+
+        <div class="result-grid">
+          <div>
+            <strong>47.7-82.3%</strong>
+            <span>fewer denoising NFEs than vanilla diffusion decoding</span>
+          </div>
+          <div>
+            <strong>1.7-5.8x</strong>
+            <span>end-to-end speedup over vanilla across settings</span>
+          </div>
+          <div>
+            <strong>26.6%</strong>
+            <span>average NFE reduction over Fast-dLLM</span>
+          </div>
+        </div>
+
+        <figure class="paper-figure wide table-figure">
+          <a href="assets/main-table.pdf">
+            <img src="assets/main-results-table.png" alt="Main benchmark results table" />
+          </a>
+          <figcaption>
+            Main benchmark results. Click the table to open the PDF version.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section id="artifact" class="section-pad artifact-section">
+        <div class="section-heading">
+          <p class="eyebrow">Artifact</p>
+          <h2>Reproduce evaluations from the repository.</h2>
+        </div>
+        <div class="code-grid">
+          <div>
+            <h3>Install</h3>
+            <pre><code>git clone https://github.com/Laurence-Wu/BlockBatch.git
+cd BlockBatch
+pip install -r requirements.txt</code></pre>
+          </div>
+          <div>
+            <h3>Run BlockBatch</h3>
+            <pre><code>python blockBatching_ablation/eval.py \
+  --model llada \
+  --task gsm8k \
+  --method block_batching \
+  --analyze</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="citation" class="section-pad citation-section">
+        <div class="section-heading">
+          <p class="eyebrow">Citation</p>
+          <h2>Cite BlockBatch</h2>
+        </div>
+        <pre><code>@misc{wu2026blockbatch,
+  title = {BlockBatch: Multi-Scale Consensus Decoding for Efficient Diffusion Language Model Inference},
+  author = {Wu, Xiaoyou and Shih, Cheng-Jhih and Ji, Binfei and Liu, Yong and Lin, Yingyan (Celine)},
+  year = {2026}
+}</code></pre>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>BlockBatch</span>
+      <span>Training-free multi-scale decoding for diffusion language models.</span>
+    </footer>
+  </body>
+</html>

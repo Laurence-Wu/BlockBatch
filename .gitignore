@@ -1,0 +1,73 @@
+# ── IDE / OS ──────────────────────────────────────────────────────────────────
+.vscode/
+.DS_Store
+**/.DS_Store
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+nohup.out
+logs/
+slurm-*.out
+slurm_*.out
+*.err
+
+# ── Experiment result data (generated at runtime, not for version control) ────
+# rank output files
+rank_*.jsonl
+rank_*_*.jsonl
+
+# lm_eval harness output
+results_*.json
+samples_*.jsonl
+**/lm_eval/
+
+# analysis / stats outputs
+block_analysis_*.json
+block_batching_stats_*.jsonl
+block_combo_summary.json
+refresh_block_size_summary.json
+sync_threshold_summary.json
+
+# experiment output trees and generated paper/plot artifacts
+blockBatching_ablation/results/
+blockBatching_ablation/logs/
+blockBatching_ablation/launch/generated/
+blockBatching_ablation/launch/evaluate/
+blockBatching_ablation/launch/tasks/
+blockBatching_ablation/optimal_blocksize_ablation*.png
+blockBatching_ablation/optimal_blocksize_ablation_data.*
+experiements/*/results/
+experiements/*/logs/
+experiements/conf_threshold_ablation/
+experiements/KV_Space_ablations/figures/
+experiements/*/*_grid_data.json
+experiements/*/*_grid.png
+
+# ── Existing eval result dirs ─────────────────────────────────────────────────
+llada/output/
+llada/evals_results/
+llada/eval_results/
+dream/evals_results/
+dream/eval_results/
+
+# ── Embedded repos ────────────────────────────────────────────────────────────
+Discrete-Diffusion-Forcing/
+v2/
+
+# ── Local run artifacts ───────────────────────────────────────────────────────
+*.out
+*.output
+*.pid
+*.tmp
+2026emnlp_BlockBatch.pdf
+BlockBatch_Arxiv.pdf
+blockBatching_ablation/overview.pdf
+blockBatching_ablation/*_chart.pdf
