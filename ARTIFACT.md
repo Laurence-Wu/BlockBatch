@@ -96,15 +96,3 @@ python blockBatching_ablation/launch/submit.py \
   --account <account>
 ```
 
-## Public-Release Checks
-
-Run these before creating a paper artifact tag:
-
-```bash
-rg -a -n "<private-user>|<private-project-path>|<cluster-node>|<scheduler-account>|<token-name>" --hidden -g '!**/.git/**'
-find . -type f \( -name '*.log' -o -name '*.out' -o -name 'rank_*.jsonl' -o -name 'samples_*.jsonl' -o -name 'nohup.out' -o -name '*.sbatch' \) -not -path './.git/*'
-find . -path './.git' -prune -o -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.pdf' -o -iname '*.svg' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.mp4' \) -not -path './assets/*' -print
-find . -path './.git' -prune -o -type f -name '*.py' -print0 | xargs -0 python -m py_compile
-```
-
-The first three commands should print no results.
